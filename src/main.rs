@@ -1,67 +1,108 @@
-use chrono::{DateTime, TimeZone, Utc, Duration};
+use chrono::{DateTime, Duration, TimeZone, Utc};
+use float_cmp::*;
 use rand::Rng;
+use std::convert::TryInto;
 use std::io;
 use std::io::*;
-use float_cmp::*;
-use std::convert::TryInto;
 
-fn main(){
+fn main() {
     println!("load-planning");
 
-    let mut plan = LoadPlan { vehicles: Vec::new() };
+    // Create empty Plan
+    let mut plan = LoadPlan::new();
 
+    let mut current_vehicle: Option<usize> = None;
+    // REPL
     loop {
+        // if there is a current Vehicle selected, display it
+        match current_vehicle {
+            Some(i) => {
+                if i <= plan.vehicles.len() {
+                    print_vehicle(i, &plan.vehicles[i]);
+                }
+            }
+            None => {}
+        }
+        // prompt
         print!(">>> ");
         let _ = stdout().flush();
+
+        // get input line (command)
         let mut input = String::new();
-        io::stdin().read_line(&mut input).expect("error: unable to read user input");
-        //println!("{}",input);
+        io::stdin()
+            .read_line(&mut input)
+            .expect("error: unable to read user input");
         let _ = stdout().flush();
-        if input.trim() == "Q" {break};
-        match input.trim() {
-            "L" => { list_vehicles(&plan); },
-            "A" => { 
+
+        // break command into tokens
+        let cmdline: Vec<&str> = input.split_whitespace().collect();
+        if cmdline.len() == 0 {
+            // if no tokens, then re-prompt
+            continue;
+        }
+
+        // cmd is first token
+        let cmd = cmdline[0].to_uppercase();
+
+        if cmd == "Q" {
+            break;
+        };
+        match &cmd[..] {
+            "CLEAR" => {
+                // Clear Plan
+                plan = LoadPlan::new();
+                current_vehicle = None;
+            }
+            "L" => {
+                // List Vehicles
+                list_vehicles(&plan);
+            }
+            "TRAIN" => {
+                // Add a Train
                 let mut v = Vehicle::new(VehicleKind::Train);
-                v.capacity = 100.0;
-                v.items.push(45.5);
+                if cmdline.len() >= 2 {
+                    v.capacity = parse_float(cmdline[1]);
+                }
                 plan.vehicles.push(v);
             }
-            _ => { }
+            "TRUCK" => {
+                // Add a Truck
+                let mut v = Vehicle::new(VehicleKind::Truck);
+                if cmdline.len() >= 2 {
+                    v.capacity = parse_float(cmdline[1]);
+                }
+                plan.vehicles.push(v);
+            }
+            "SELECT" => {
+                // Select a Vehicle
+                if cmdline.len() >= 2 {
+                    match cmdline[1].parse::<usize>() {
+                        Ok(i) => {
+                            if i >= plan.vehicles.len() {
+                                continue;
+                            }
+                            current_vehicle = Some(i);
+                            //                            println!("{:4}: {:?}", i, current_vehicle.unwrap());
+                        }
+                        Err(err) => {
+                            println!("Error: {}", err);
+                            continue;
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Unknown command
+                println!("Sorry...");
+            }
         }
     }
-    // let mut v = Vehicle::new(VehicleKind::Train);
-    // v.capacity = 100.0;
-    // v.items.push(45.5);
-    // assert_eq!(v.space(), 54.5);
-    // v.items.push(33.3);
-    // v.items.push(21.2);
-    // assert_eq!(v.space(), 0.0);
-    // let t1 = Utc.ymd(2020, 9, 2).and_hms(6, 0, 0);
-    // let v = v.travel(t1, 41);
-
-    // println!("{:?}", v);
-
-    // let mut v2 = v.clone();
-    // v2.items.push(3.3);
-    // println!("space = {}", v2.space());
-    // println!("{:?}", v);
-    // println!("{:?}", v2);
-
-
-    // for _ in 0..40 {
-    //     v2 = v.clone();
-    //     let index = (rand::random::<f32>() * v2.items.len() as f32).floor() as usize;
-    //     let item = v2.items.remove(index);
-    //     println!("{:?}", v2);
-    //     }
-
 }
 
-#[derive(Debug, Clone)]
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum VehicleKind {
     Truck,
-    Train
+    Train,
 }
 
 #[derive(Debug, Clone)]
@@ -78,8 +119,8 @@ impl Vehicle {
             items: Vec::new(),
             kind,
             capacity: 0.0,
-            depart_date: Utc.timestamp(0,0),
-            arrive_date: Utc.timestamp(0,0),
+            depart_date: Utc.timestamp(0, 0),
+            arrive_date: Utc.timestamp(0, 0),
         }
     }
     fn space(&self) -> f64 {
@@ -91,15 +132,32 @@ impl Vehicle {
         self
     }
 }
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct LoadPlan {
     vehicles: Vec<Vehicle>,
 }
-
-fn list_vehicles(plan: &LoadPlan) {
-    for v in &plan.vehicles {
-        println!("{:?}", v);
+impl LoadPlan {
+    fn new() -> Self {
+        Self {
+            vehicles: Vec::new(),
+        }
     }
+}
+// return zero if bad value
+fn parse_float(s: &str) -> f64 {
+    match s.parse() {
+        Ok(val) => val,
+        Err(_) => 0.0,
+    }
+}
+fn list_vehicles(plan: &LoadPlan) {
+    for (i, v) in plan.vehicles.iter().enumerate() {
+        print_vehicle(i, v);
+    }
+    println!();
+}
+fn print_vehicle(i: usize, v: &Vehicle) {
+    println!("{:4}: {:?}", i, v);
 }
 // tests
 
@@ -119,11 +177,11 @@ fn test_space() {
     v.items.push(77.0);
     assert_eq!(23.0, v.space());
     v.items.push(12.9);
-    assert!( approx_eq!(f64, 10.1, v.space(), ulps = 3) );
+    assert!(approx_eq!(f64, 10.1, v.space(), ulps = 3));
 }
 
 #[test]
-fn test_Travel() {
+fn test_travel() {
     let mut v = Vehicle::new(VehicleKind::Truck);
     assert!(v.kind == VehicleKind::Truck);
     v.capacity = 100.0;
@@ -131,4 +189,11 @@ fn test_Travel() {
     let finish = Utc.ymd(2020, 10, 3).and_hms(7, 0, 0);
     v = v.travel(start, 49);
     assert_eq!(finish, v.arrive_date);
+}
+
+#[test]
+fn test_parse_float() {
+    assert_eq!(0.0, parse_float("xyz"));
+    assert_eq!(0.0, parse_float(""));
+    assert_eq!(123.456, parse_float("123.456"));
 }
