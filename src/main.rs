@@ -4,9 +4,20 @@ use rand::Rng;
 use std::convert::TryInto;
 use std::io;
 use std::io::*;
+use std::mem;
 
 fn main() {
     println!("load-planning");
+
+    // Create problem
+    let mut problem = Problem::new();
+    for _ in 0..20 {
+        let f : f64 = rand::random::<f64>() * 1000.0;
+        let i = f.floor() as i32;
+        
+        problem.boxes.push(i as f64 / 10.0); 
+    }
+    println!("{:?}", problem);
 
     // Create empty Plan
     let mut plan = LoadPlan::new();
@@ -82,7 +93,6 @@ fn main() {
                                 continue;
                             }
                             current_vehicle = Some(i);
-                            //                            println!("{:4}: {:?}", i, current_vehicle.unwrap());
                         }
                         Err(err) => {
                             println!("Error: {}", err);
@@ -90,6 +100,29 @@ fn main() {
                         }
                     }
                 }
+            }
+            "LOAD" => {
+                // load the boxes into each vehicle (greedy)
+                // let boxes = problem.boxes.clone();
+                // let mut lp = plan.clone();
+                // for b in boxes.iter() {
+                //     //let mut lp = lp.clone();
+                //     for v in &lp.vehicles {
+                //         let v1 = v.clone();
+                //         println!("Vehicle capacity {}", v1.capacity);
+                //         if v1.space() < *b { continue; }
+                //         println!("Adding {}", *b);
+                //         v1.items.push(*b);
+                //         mem::replace(&mut v, &v1);
+                //         break;
+                //     }
+                // }
+                // plan = lp.clone();
+            }
+            "T" => {
+                let mut lp = plan.clone();
+                lp.vehicles[0].items.push(99.0);
+                plan = lp.clone();
             }
             _ => {
                 // Unknown command
@@ -103,6 +136,14 @@ fn main() {
 enum VehicleKind {
     Truck,
     Train,
+}
+
+#[derive(Debug, Clone)]
+struct Problem {
+    boxes: Vec<f64>,
+}
+impl Problem {
+    fn new() -> Self { Self { boxes: Vec::new() } }
 }
 
 #[derive(Debug, Clone)]
