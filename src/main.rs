@@ -102,22 +102,22 @@ fn main() {
                 }
             }
             "LOAD" => {
-                // load the boxes into each vehicle (greedy)
-                // let boxes = problem.boxes.clone();
-                // let mut lp = plan.clone();
-                // for b in boxes.iter() {
-                //     //let mut lp = lp.clone();
-                //     for v in &lp.vehicles {
-                //         let v1 = v.clone();
-                //         println!("Vehicle capacity {}", v1.capacity);
-                //         if v1.space() < *b { continue; }
-                //         println!("Adding {}", *b);
-                //         v1.items.push(*b);
-                //         mem::replace(&mut v, &v1);
-                //         break;
-                //     }
-                // }
-                // plan = lp.clone();
+                let mut b = problem.boxes.clone();
+                let mut lp = LoadPlan::new();
+                lp.vehicles = plan.vehicles.clone();
+                loop {
+                    let mut vehicles = lp.vehicles.clone();
+                    //let mut lp = LoadPlan::new();
+                    for v in &vehicles {
+                        let b1 = b.pop();
+                        if b1 == None { break; }
+                        let mut v1 = v.clone();
+                        v1.items.push(b1.unwrap());
+                        lp.vehicles.push(v1);
+                    }
+                    if b.len() == 0 { break; }
+                }
+                plan = lp;
             }
             "T" => {
                 let mut lp = plan.clone();
