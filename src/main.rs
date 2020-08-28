@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use float_cmp::*;
+use im::*;
 use rand::Rng;
 use std::convert::TryInto;
 use std::io;
@@ -11,12 +12,18 @@ fn main() {
 
     // Create problem
     let mut problem = Problem::new();
-    for _ in 0..20 {
-        let f : f64 = rand::random::<f64>() * 1000.0;
-        let i = f.floor() as i32;
-        
-        problem.boxes.push(i as f64 / 10.0); 
+    for ix in 0..5 {
+        let mut order = Order::new(ix.to_string(), Utc.ymd(2020, 10, 1).and_hms(0, 0, 0));
+
+        for _ in 0..3 {
+            let f: f64 = rand::random::<f64>() * 1000.0;
+            let i = f.floor() as i32;
+            order.boxes.push_back(i as f64 / 10.0);
+        }
+
+        problem.orders.insert(ix.to_string(), order);
     }
+
     println!("{:?}", problem);
 
     // Create empty Plan
@@ -101,27 +108,31 @@ fn main() {
                     }
                 }
             }
-            "LOAD" => {
-                let mut b = problem.boxes.clone();
-                let mut lp = LoadPlan::new();
-                lp.vehicles = plan.vehicles.clone();
-                loop {
-                    let mut vehicles = lp.vehicles.clone();
-                    //let mut lp = LoadPlan::new();
-                    for v in &vehicles {
-                        let b1 = b.pop();
-                        if b1 == None { break; }
-                        let mut v1 = v.clone();
-                        v1.items.push(b1.unwrap());
-                        lp.vehicles.push(v1);
-                    }
-                    if b.len() == 0 { break; }
-                }
-                plan = lp;
-            }
+            // "LOAD" => {
+            //     let mut b = problem.boxes.clone();
+            //     let mut lp = LoadPlan::new();
+            //     lp.vehicles = plan.vehicles.clone();
+            //     loop {
+            //         let mut vehicles = lp.vehicles.clone();
+            //         //let mut lp = LoadPlan::new();
+            //         for v in &vehicles {
+            //             let b1 = b.pop();
+            //             if b1 == None {
+            //                 break;
+            //             }
+            //             let mut v1 = v.clone();
+            //             v1.items.push(b1.unwrap());
+            //             lp.vehicles.push(v1);
+            //         }
+            //         if b.len() == 0 {
+            //             break;
+            //         }
+            //     }
+            //     plan = lp;
+            // }
             "T" => {
                 let mut lp = plan.clone();
-                lp.vehicles[0].items.push(99.0);
+                lp.vehicles[0].items.push_back(("1".to_string(), 99.0));
                 plan = lp.clone();
             }
             _ => {
@@ -140,24 +151,44 @@ enum VehicleKind {
 
 #[derive(Debug, Clone)]
 struct Problem {
-    boxes: Vec<f64>,
+    orders: HashMap<String, Order>,
 }
 impl Problem {
-    fn new() -> Self { Self { boxes: Vec::new() } }
+    fn new() -> Self {
+        Self {
+            orders: hashmap! {},
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Order {
+    id: String,
+    boxes: Vector<f64>, // weights
+    due_date: DateTime<Utc>,
+}
+impl Order {
+    fn new(id: String, due_date: DateTime<Utc>) -> Self {
+        Self {
+            boxes: Vector::<f64>::new(),
+            id,
+            due_date,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 struct Vehicle {
     kind: VehicleKind,
     capacity: f64,
-    items: Vec<f64>,
+    items: Vector<(String, f64)>, // order id, box size
     depart_date: DateTime<Utc>,
     arrive_date: DateTime<Utc>,
 }
 impl Vehicle {
     fn new(kind: VehicleKind) -> Vehicle {
         Vehicle {
-            items: Vec::new(),
+            items: Vector::new(),
             kind,
             capacity: 0.0,
             depart_date: Utc.timestamp(0, 0),
@@ -165,7 +196,7 @@ impl Vehicle {
         }
     }
     fn space(&self) -> f64 {
-        self.capacity - self.items.iter().sum::<f64>()
+        self.capacity - self.items.iter().map(|x| x.1).sum::<f64>()
     }
     fn travel(mut self, leaving: DateTime<Utc>, hours: u32) -> Vehicle {
         self.depart_date = leaving;
@@ -200,6 +231,7 @@ fn list_vehicles(plan: &LoadPlan) {
 fn print_vehicle(i: usize, v: &Vehicle) {
     println!("{:4}: {:?}", i, v);
 }
+
 // tests
 
 #[test]
